@@ -64,7 +64,7 @@
   };
 
   /**
-   * Change current frame
+   * Change current frame.
    */
   
   Timeline.prototype.set = function(n) {
