@@ -47,13 +47,13 @@ timeline.eachFrame(from, to, function(nthFrame, i) {
 });
 ```
 
-### timeline.alias()
+### timeline.alias(n, name)
 
 In some case, attaching an alias will make your code more maintainable.
 
 ```javascript
-timeline.alias('foo', 45);
-timeline.alias('bar', '30%');
+timeline.alias(45, 'foo');
+timeline.alias('30%', 'bar');
 
 timeline.at('foo', function(delta) {
   //do something    
