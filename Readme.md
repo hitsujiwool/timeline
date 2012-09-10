@@ -1,10 +1,51 @@
 # timeline
 
-Flash timeline-like callback scheduler.
+Timeline-based callback scheduler for JavaScript.
 
-timeline.js provide a simple structure for storing callbacks placed on a timeline-like sequence on which user can easily go ahead, stop, and go back. Note that this is not an asynchronous flow controlling library, such as async.js, flow.js or various deferred/promise implementation. 
+timeline.js provide a simple structure for storing callbacks placed on a flash-timeline-like sequence through which user can easily go ahead, stop, and go back. Note that this is not an asynchronous flow controlling library, such as async.js, flow.js or various deferred/promise implementation. 
 
 ## Usage
+
+```javascript
+// create timeline which has 200 frames
+var tl = new Timeline(200);
+
+// add callback executed at 45-th frame
+tl.at(45, function(delta) {
+  if (delta > 0) {
+    console.log('do something when the timeline goes ahead');
+  } else {
+    console.log('do something when the timeline goes back');
+  }
+});
+
+// add callback executed at 40-th frame
+tl.at('20%', function(delta) {
+  console.log('do something');
+});
+
+tl.eachFrame(5, 50, function(nthFrame, i) {
+  return function(delta) {
+    console.log("I'm registered at " + nthFrame + '-th frame.');
+  };
+});
+
+// create an alias
+tl.alias(90, 'foo');
+
+// add callback executed at 90-th frame
+tl.at('foo', function() {
+  console.log('do something');
+});
+
+tl.gotoAndStop(150);
+
+tl.stop();
+
+tl.backtoAndStop(1);
+```
+
+## API
 
 ### new Timeline(numFrames)
 
@@ -14,55 +55,13 @@ Create a new Timeline object.
 
 Registers what you want to do in the form of a callback function.
 
-```javascript
-timeline.at(45, function(delta) {
-  // do something
-});
-
-timeline.at(45, function(delta) {
-  // do another thing (this is called after callback above.)
-});
-````
-
-You can assign callback by its relative position, which is a String with '%' at its end.
-
-```javascript
-timeline.at('20%', function(delta) {
-  // do something
-});
-```
-
-Alias created by `timeline#alias()` is also available (see below.)
-
-
 ### timeline.eachFrame(from, to, callback)
 
 You can register a series of callbacks by using `timeline.eachFrame()`. Callbacks are placed at each frame from `from + 1`-th to `to`-th frame. The function of the 3rd parameter is a callback builder, which receives `nthFrame` and the index number `i` (from 0 to `from - to + 1`. This builder function must return a function which is the body of the callback to be registered.
 
-```javascript
-timeline.eachFrame(from, to, function(nthFrame, i) {
-  return function(delta) {
-    // do something
-  };
-});
-```
-
 ### timeline.alias(n, name)
 
-In some case, attaching an alias will make your code more maintainable.
-
-```javascript
-timeline.alias(45, 'foo');
-timeline.alias('30%', 'bar');
-
-timeline.at('foo', function(delta) {
-  //do something
-});
-
-timeline.at('bar', function(delta) {
-  //do something    
-});
-```
+Creates an alias named `name` for `n`-th frame.
 
 ### timeline.stop()
 
