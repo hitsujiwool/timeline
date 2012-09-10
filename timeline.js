@@ -2,28 +2,40 @@
 /*!
  * timeline.js
  * https://github.com/hitsujiwool/timeline
- * version 0.1.0
+ * version 0.1.1
  * Copyright(c) 2012 hitsujiwool <utatanenohibi@gmail.com>
  * MIT Licensed
  */
 
 ;(function(exports) {
   
+  /**
+   * Initialize timeline.
+   * 
+   * @param {Number} numFrames
+   * @api public
+   */
+
   function Timeline(numFrames) {
     EventEmitter.call(this);
     this.currentFrame = 1;
     this.numFrames = numFrames;
     this.timeline = new Array(numFrames);
-    this.locked = false;
-    
-    this.aliases = {};
+    this.locked = false;    
     this.reserved = null;
+    this.aliases = {};
   }
   
+  // inherit EventEmitter
   Timeline.prototype = new EventEmitter();
 
   /**
    * Register a function called at nth-frame.
+   * 
+   * @param {Mixed} n
+   * @param {Function} callback
+   * @return {Timeline}
+   * @api public
    */
   
   Timeline.prototype.at = function(n, callback) {    
@@ -35,6 +47,11 @@
   /**
    * Register a callback for each frame.
    * Callback function must return Function object.
+   * 
+   * @param {Mixed} from
+   * @param {Mixed} to
+   * @param {Function} callback
+   * @api public
    */
 
   Timeline.prototype.eachFrame = function(from, to, callback) {
@@ -51,32 +68,12 @@
   };
 
   /**
-   * Run callbacks registered at n-th frame.
-   */
-
-  Timeline.prototype.runCallbackAt = function(nthFrame, delta) {
-    var callbacks = this.timeline[nthFrame] || [];
-    for (var i = 0, len = callbacks.length; i < len; i++) {
-      (function(i) {
-        setTimeout(function() { callbacks[i](delta); });
-      })(i);
-    }
-  };
-
-  /**
-   * Change current frame.
-   */
-  
-  Timeline.prototype.set = function(n) {
-    if (!this.locked) {
-      this.currentFrame = this.nthFrame(n);
-    } else {
-      throw new Error("Don't call this method during animation!");
-    }
-  };
-
-  /**
-   *  Create an alias for a frame.
+   * Create an alias for a frame.
+   * 
+   * @param {Mixed} n
+   * @param {String} name
+   * @return {Timeline}
+   * @api public
    */
 
   Timeline.prototype.alias = function(n, name) {
@@ -86,6 +83,10 @@
 
   /**
    * Resolve aliases.
+   * 
+   * @param {Mixed} n
+   * @return {Number}
+   * @api public 
    */
 
   Timeline.prototype.nthFrame = function(n) {
@@ -109,6 +110,11 @@
 
   /**
    * Return the number of frames between two frames.
+   * 
+   * @param {Mixed} from
+   * @param {Mixed} to
+   * @return {Number}
+   * @api public
    */
 
   Timeline.prototype.distanceBetween = function(from, to) {
@@ -116,44 +122,105 @@
   };
 
   /**
+   * Change current frame.
+   * 
+   * @param {Mixed} n
+   * @return {Timeline}
+   * @api public
+   */
+  
+  Timeline.prototype.set = function(n) {
+    if (!this.locked) {
+      this.currentFrame = this.nthFrame(n);
+    } else {
+      throw new Error("Don't call this method during animation!");
+    }
+    return this;
+  };
+
+  /**
    * Stop animation.
+   * 
+   * @return {Timeline}
+   * @api public
    */
 
   Timeline.prototype.stop = function() {
     clearTimeout(this.loop);
     this.locked = false;
+    return this;
   };
 
   /**
    * Tick the timeline forward. 
+   * 
+   * @param {Mixed} n
+   * @param {Number} interval
+   * @return {Timeline}
+   * @api public
    */
   
   Timeline.prototype.gotoAndStop = function(n, interval) {
-    var that = this,
-        nthFrame = this.nthFrame(n);
-    if (!(this.currentFrame < nthFrame)) return;
+    var nthFrame = this.nthFrame(n);
+    if (!(this.currentFrame < nthFrame)) return this;
+    // if another loop is running, reserve this request
     if (this.locked) {
       this.reserved = [nthFrame, interval];
-      return;
+      return this;
     }
     this.locked = true;
     if (this.currentFrame === 1) {
       this.emit('setup', 1, 1);
     }
     this.forwardLoop(this.currentFrame + 1, nthFrame, interval);
+    return this;
+  };
+
+  /**
+   * Tick the timeline backward. 
+   * 
+   * @param {Mixed} n
+   * @param {Number} interval
+   * @return {Timeline}
+   * @api public
+   */
+
+  Timeline.prototype.backtoAndStop = function(n, interval) {
+    var nthFrame = this.nthFrame(n);
+    if (!(nthFrame < this.currentFrame)) return this;
+    // if another loop is running, reserve this request
+    if (this.locked) {
+      // invert frame number to mark backward direction
+      this.reserved = [-nthFrame, interval];
+      return this;
+    }
+    this.locked = true;
+    if (this.currentFrame === this.numFrames) {
+      this.emit('setup', this.numFrames, -1); 
+    }
+    // invert frame number to mark backward direction
+    this.backwardLoop(-this.currentFrame, nthFrame, interval);
+    return this;
   };
 
   /**
    * Forward loop. 
+   * 
+   * @param {Number} next
+   * @param {Number} destination
+   * @param {Number} interval
+   * @private
    */
 
   Timeline.prototype.forwardLoop = function(next, destination, interval) {
     var that = this,
         latest;
+    // end loop
     if (this.numFrames < next || destination < next) {
       this.locked = false;
       return;
     }
+    // update to latest destination
     latest = this.reserved;
     if (latest) {
       this.reserved = null;
@@ -163,6 +230,7 @@
       }
       destination = latest[0];
     }
+    // in the case of forwarding, tick and then run callbak
     this.loop = setTimeout(function() {
       var callbacks;
       that.emit('enterframe', next, 1);
@@ -171,41 +239,30 @@
       if (that.currentFrame === that.numFrames) {
         that.emit('teardown', that.numFrames, 1);
       }
+      // next loop
       that.forwardLoop(next + 1, destination, interval);
     }, interval || 0);
   };
 
   /**
-   * Tick the timeline backward. 
-   */
-
-  Timeline.prototype.backtoAndStop = function(n, interval) {
-    var that = this,
-        nthFrame = this.nthFrame(n);
-    if (!(nthFrame < this.currentFrame)) return;
-    if (this.locked) {
-      this.reserved = [-nthFrame, interval];
-      return;
-    }
-    this.locked = true;
-    if (this.currentFrame === this.numFrames) {
-      this.emit('setup', this.numFrames, -1); 
-    }
-    this.backwardLoop(-this.currentFrame, nthFrame, interval);
-  };
-
-  /**
    * Backward loop.
+   * 
+   * @param {Number} next
+   * @param {Number} destination
+   * @param {Number} interval
+   * @private
    */
   
   Timeline.prototype.backwardLoop = function(next, destination, interval) {
     next = -next;
     var that = this,
         latest;
+    // end loop
     if (next < 1 || next <= destination) {
       this.locked = false;
       return;
     }
+    // update to latest destination
     latest = this.reserved;
     if (latest) {
       this.reserved = null;
@@ -215,6 +272,7 @@
       }
       destination = -latest[0];
     }
+    // in the case of backwarding, run callback and then tick
     this.runCallbackAt(next, -1);
     this.loop = setTimeout(function() {
       var callbacks;
@@ -223,10 +281,56 @@
       if (that.currentFrame === 1) {
         that.emit('teardown', 1, -1);
       }
+      // next loop
       that.backwardLoop(-(next - 1), destination, interval);
     }, interval || 0);
   };
 
+  /**
+   * Run callbacks registered at n-th frame.
+   * 
+   * @param {Number} nthFrame
+   * @param {Number} delta
+   * @private
+   */
+
+  Timeline.prototype.runCallbackAt = function(nthFrame, delta) {
+    var callbacks = this.timeline[nthFrame] || [];
+    for (var i = 0, len = callbacks.length; i < len; i++) {
+      (function(i) {
+        setTimeout(function() { callbacks[i](delta); });
+      })(i);
+    }
+  };
+
+  // expose
   exports.Timeline = Timeline;
+
+  /**
+   * EventEmitter Pattern from move.js written by visionmedia
+   * https://github.com/visionmedia/move.js/blob/master/move.js
+   */
+  
+  function EventEmitter() {
+    this.callbacks = {};
+  };
+
+  EventEmitter.prototype.on = function(event, fn) {
+    (this.callbacks[event] = this.callbacks[event] || []).push(fn);
+    return this;
+  };
+
+  EventEmitter.prototype.emit = function(event) {
+    var args = Array.prototype.slice.call(arguments, 1),
+        callbacks = this.callbacks[event],
+        len;
+    if (callbacks) {
+      len = callbacks.length;
+      for (var i = 0; i < len; ++i) {
+        callbacks[i].apply(this, args);
+      }
+    }
+    return this;
+  };
 
 })(this);

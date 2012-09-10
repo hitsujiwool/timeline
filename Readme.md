@@ -56,13 +56,25 @@ timeline.alias(45, 'foo');
 timeline.alias('30%', 'bar');
 
 timeline.at('foo', function(delta) {
-  //do something    
+  //do something
 });
 
 timeline.at('bar', function(delta) {
   //do something    
 });
 ```
+
+### timeline.stop()
+
+Stops current animation.
+
+### timeline.set(n)
+
+Set the current frame to n. This does not raise animation, only moves the pointer of the current frame. Note that this method throws error if it is called during animation loop.
+
+### timeine.distanceBetween(m, n)
+
+Returns the number of frames between m-th frame and n-th frame. `m` and `n` may be a frame number, relative position, alias.
 
 ### timeline.gotoAndStop(nthFrame, interval)
 
